@@ -1,0 +1,13 @@
+[package]
+name = "dethread-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4"
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", tag = "0.6.11" }
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", tag = "0.6.11" }
+serde = "1.0.203"
+env_logger = "0.8"
+log = "0.4"
+
