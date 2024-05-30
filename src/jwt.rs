@@ -4,11 +4,11 @@ use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, D
 const SECRET_KEY: &[u8] = b"temp";
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims { id: String }
+pub struct Claims { pub id: String }
 
 pub fn create_jwt(id: &str) -> Result<String> {
     let claims = Claims { id: id.to_owned() };
-    encode(&Header::default(), &claims, &EncodingKey::from_secret(SECRET_KEY))
+        encode(&Header::default(), &claims, &EncodingKey::from_secret(SECRET_KEY))
     }
 
 pub fn validate_jwt(token: &str) -> Result<Claims> {
