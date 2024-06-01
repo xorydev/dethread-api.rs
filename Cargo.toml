@@ -10,4 +10,6 @@ prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-
 serde = "1.0.203"
 env_logger = "0.8"
 log = "0.4"
+jsonwebtoken = "9.3.0"
+rand = "0.8.5"
 
