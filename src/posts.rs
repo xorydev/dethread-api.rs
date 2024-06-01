@@ -3,6 +3,7 @@ use serde::Deserialize;
 use crate::jwt::validate_jwt;
 use crate::prisma::PrismaClient;
 use crate::prisma::account;
+use crate::prisma::post;
 use rand::Rng;
 
 #[derive(Deserialize)]
@@ -11,6 +12,12 @@ pub struct PostCreationRequest {
     title: String,
     content: String,
 }
+
+#[derive(Deserialize)]
+pub struct PostGetRequest {
+    id: String,
+}
+
 
 pub async fn create_post(info: web::Json<PostCreationRequest>) -> impl Responder {
     let prisma = match PrismaClient::_builder().build().await {
@@ -60,3 +67,27 @@ pub async fn create_post(info: web::Json<PostCreationRequest>) -> impl Responder
     HttpResponse::Unauthorized().body("Invalid token")
 }
 
+pub async fn get_post(info: web::Json<PostGetRequest>) -> impl Responder {
+    let prisma = match PrismaClient::_builder().build().await {
+        Ok(client) => client,
+        Err(err) => {
+            eprintln!("Error building Prisma Client: {:?}", err);
+            return HttpResponse::InternalServerError().body("Internal Server Error");
+        }
+    };
+
+    // Search the DB for the post
+    let post = prisma.post()
+        .find_unique(post::id::equals(info.id.to_string()))
+        .exec()
+        .await
+        .unwrap();
+
+    // Return the post
+    if let Some(post) = post {
+        HttpResponse::Ok().json(post)
+    } else {
+        HttpResponse::NotFound().body("Not Found")
+    }
+
+}
