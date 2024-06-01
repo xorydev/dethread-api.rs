@@ -15,11 +15,12 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .route("/", web::get().to(index))
             .service(
-                web::scope("/")
-                    .route("/user/add", web::post().to(accounts::add_user))
-                    .route("/user/login", web::post().to(accounts::login))
-                    .route("/post/", web::post().to(posts::create_post))
+                web::scope("/user")
+                    .route("/add", web::post().to(accounts::add_user))
+                    .route("/login", web::post().to(accounts::login))
             )
+            .route("/post", web::post().to(posts::create_post))
+            .route("/post", web::get().to(posts::get_post))
     })
     .bind("127.0.0.1:8080")?
     .run()

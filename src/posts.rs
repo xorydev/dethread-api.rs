@@ -31,6 +31,9 @@ pub async fn create_post(info: web::Json<PostCreationRequest>) -> impl Responder
     // Validate the JWT token
     let token_result = validate_jwt(info.token.as_str());
 
+    dbg!(&info.token);
+    dbg!(&token_result);
+
     if let Ok(token) = token_result {
         let mut rng = rand::thread_rng();
         let post_id = rng.gen_range(0..999999).to_string();
