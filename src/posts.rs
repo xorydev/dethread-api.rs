@@ -18,6 +18,12 @@ pub struct PostGetRequest {
     id: String,
 }
 
+#[derive(Deserialize)]
+pub struct PostDeleteRequest {
+    token: String,
+    id: String
+}
+
 
 pub async fn create_post(info: web::Json<PostCreationRequest>) -> impl Responder {
     let prisma = match PrismaClient::_builder().build().await {
@@ -93,4 +99,47 @@ pub async fn get_post(info: web::Json<PostGetRequest>) -> impl Responder {
         HttpResponse::NotFound().body("Not Found")
     }
 
+}
+
+pub async fn delete(info: web::Json<PostDeleteRequest>) -> impl Responder {
+    let prisma = match PrismaClient::_builder().build().await {
+        Ok(client) => client,
+        Err(err) => {
+            eprintln!("Error building Prisma Client: {:?}", err);
+            return HttpResponse::InternalServerError().body("Internal Server Error");
+        }
+    };
+
+    // Search the DB for the post
+    let post = prisma.post()
+        .find_unique(post::id::equals(info.id.to_string()))
+        .exec()
+        .await
+        .unwrap();
+
+    if let Some(post) = post {
+        // Authenticate
+        let token_result = validate_jwt(&info.token);
+        if let Ok(token) = token_result {
+            if token.id == post.author_id {
+                // Delete the post.
+                let delete_post = prisma
+                    .post()
+                    .delete(post::id::equals(info.id.to_string()))
+                    .exec()
+                    .await;
+                
+                if delete_post.is_err() {
+                    return HttpResponse::InternalServerError().body("Internal Server Error")
+                };
+
+            } else {
+                return HttpResponse::Forbidden().body("Forbidden");
+            }
+        } else {
+            return HttpResponse::Forbidden().body("Invalid token");
+        }
+    }
+
+    HttpResponse::Ok().body("")
 }
