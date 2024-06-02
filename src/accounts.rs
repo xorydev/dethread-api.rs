@@ -4,6 +4,7 @@ use crate::prisma::account;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use crate::jwt::{create_jwt, validate_jwt};
+use bcrypt::{hash, DEFAULT_COST, verify};
 
 
 
@@ -33,11 +34,12 @@ pub async fn add_user(info: web::Json<AccountCreationRequest>) -> impl Responder
     let prisma = PrismaClient::_builder().build().await.unwrap();
     let mut rng = rand::thread_rng();
     let userid: u64 = rng.gen_range(0..999999999999);
+    let hashed_password = hash(&info.password, DEFAULT_COST).unwrap();
     let account: crate::prisma::account::Data = prisma.account().create(
         format!("user_{userid}").to_string(),
         info.username.to_string(),
         info.email.to_string(),
-        info.password.to_string(),
+        hashed_password,
         vec![]
     ).exec().await.unwrap();   
 
@@ -58,10 +60,10 @@ pub async fn login(info: web::Json<AccountLoginRequest>) -> Result<HttpResponse,
         return Ok(HttpResponse::InternalServerError().body("Internal Server Error"));
     };
 
+
     // Find the account in the database
     let account = if let Ok(account) = prisma.account().find_first(vec![
         account::email::equals(info.email.to_string()),
-        account::password::equals(info.password.to_string())
     ]).exec().await {
         account
     } else {
@@ -71,20 +73,29 @@ pub async fn login(info: web::Json<AccountLoginRequest>) -> Result<HttpResponse,
 
     // Check if the account was found
     if let Some(account) = account {
-        // Create the JWT
-        let token = if let Ok(token) = create_jwt(account.id.as_str()) {
-            token
+        if let Ok(is_match) = verify(info.password.clone(), &account.password) {
+            if is_match {
+                // Create the JWT
+                let token = if let Ok(token) = create_jwt(account.id.as_str()) {
+                    token
+                } else {
+                    eprintln!("Error creating JWT");
+                    return Ok(HttpResponse::InternalServerError().body("Internal Server Error"));
+                };
+        
+                // Create the response
+                let response = AccountLoginResponse { token };
+        
+                Ok(HttpResponse::Ok().json(response))
+            } else {
+                Ok(HttpResponse::Unauthorized().body("Invalid email or password: !is_match"))
+            }
         } else {
-            eprintln!("Error creating JWT");
-            return Ok(HttpResponse::InternalServerError().body("Internal Server Error"));
-        };
-
-        // Create the response
-        let response = AccountLoginResponse { token };
-
-        Ok(HttpResponse::Ok().json(response))
+            Ok(HttpResponse::Unauthorized().body("Invalid email or password: Err(verify)"))
+        }
     } else {
-        Ok(HttpResponse::Unauthorized().body("Invalid email or password"))
+        Ok(HttpResponse::Unauthorized().body("Invalid email or password: account not found"))
     }
+
 }
 
