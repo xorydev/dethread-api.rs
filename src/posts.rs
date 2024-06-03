@@ -24,6 +24,10 @@ pub struct PostDeleteRequest {
     id: String
 }
 
+#[derive(Deserialize)]
+pub struct PostSearchRequest {
+    search_text: String,
+}
 
 pub async fn create_post(info: web::Json<PostCreationRequest>) -> impl Responder {
     let prisma = match PrismaClient::_builder().build().await {
@@ -142,4 +146,35 @@ pub async fn delete(info: web::Json<PostDeleteRequest>) -> impl Responder {
     }
 
     HttpResponse::Ok().body("")
+}
+
+pub async fn search(info: web::Json<PostSearchRequest>) -> impl Responder {
+    // Create Prisma Client
+    let prisma = match PrismaClient::_builder().build().await {
+        Ok(prisma) => prisma,
+        Err(err) => {
+            eprintln!("Failed to build Prisma Client: {:?}", err);
+            return HttpResponse::InternalServerError().body("Internal Server Error");
+        },
+    };
+
+    // Trim the search text
+    let search_text: String = info.search_text.trim().to_string();
+
+    // Find posts
+    let posts = prisma
+        .post()
+        .find_many(vec![post::content::contains(search_text.clone())])
+        .exec()
+        .await;
+    
+    match posts {
+        Ok(ref posts) => posts,
+        Err(err) => {
+            eprintln!("Error: {:?}", err);
+            return HttpResponse::InternalServerError().body("Internal Server Error");
+        }
+    };
+
+    HttpResponse::Ok().json(posts)
 }
