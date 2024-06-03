@@ -1,9 +1,9 @@
-use actix_web::{web, App, HttpServer, Responder, HttpResponse};
+use actix_web::{web, Responder, HttpResponse};
 use crate::prisma::PrismaClient;
 use crate::prisma::account;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use crate::jwt::{create_jwt, validate_jwt};
+use crate::jwt::create_jwt;
 use bcrypt::{hash, DEFAULT_COST, verify};
 
 
@@ -34,7 +34,12 @@ pub async fn add_user(info: web::Json<AccountCreationRequest>) -> impl Responder
     let prisma = PrismaClient::_builder().build().await.unwrap();
     let mut rng = rand::thread_rng();
     let userid: u64 = rng.gen_range(0..999999999999);
-    let hashed_password = hash(&info.password, DEFAULT_COST).unwrap();
+    let hashed_password = match hash(&info.password, DEFAULT_COST) {
+        Ok(hash) => hash,
+        Err(err) => {
+            return HttpResponse::InternalServerError().body("");
+        }
+    };
     let account: crate::prisma::account::Data = prisma.account().create(
         format!("user_{userid}").to_string(),
         info.username.to_string(),
@@ -43,13 +48,17 @@ pub async fn add_user(info: web::Json<AccountCreationRequest>) -> impl Responder
         vec![]
     ).exec().await.unwrap();   
 
-    let response = AccountCreationResponse {
-        id: account.id.clone(),
-        token: create_jwt(account.id.as_str()).expect("we just generated both of these, this shouldn't fail"),
-    };
-    
-    println!("sending response");
-    HttpResponse::Ok().json(response)
+    if let Ok(response_jwt) = create_jwt(account.id.as_str()) {
+        let response = AccountCreationResponse {
+            id: account.id.clone(),
+            token: response_jwt,
+        };
+        
+        HttpResponse::Ok().json(response)
+    } else {
+        HttpResponse::InternalServerError().body("")
+    }
+
 }
 pub async fn login(info: web::Json<AccountLoginRequest>) -> Result<HttpResponse, actix_web::Error> {
     // Build the Prisma client
