@@ -32,3 +32,14 @@ model Post {
   dislikes Int @default(0)
 }
 
+model Reply {
+  id  String @id @unique
+  content String
+  
+  author Account @relation(fields: [authorId], references: [id])
+  authorId String
+
+  post Post @relation(fields: [postId], references: [id])
+  postId String
+}
+
