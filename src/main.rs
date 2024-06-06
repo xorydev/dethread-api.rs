@@ -3,6 +3,7 @@ mod prisma;
 mod jwt;
 mod accounts;
 mod posts;
+mod replies;
 
 async fn index() -> impl Responder {
     "DeThread Backend API v1.0 - Written in Actix"
